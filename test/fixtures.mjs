@@ -1,5 +1,6 @@
 import { createBlobStore } from '../lib/blob-store.js';
 import { createApplication } from '../lib/application.js';
+import { BlobPreconditionFailedError } from '@vercel/blob';
 export const testEnvironment = {
   NODE_ENV: 'test', SESSION_SECRET: 'test-session-secret-is-long-and-never-for-production',
   ADMIN_USERNAME: 'superadmin', ADMIN_PASSWORD: 'AdminPassword123!', ADMIN_EMAIL: 'admin@example.com',
@@ -21,13 +22,14 @@ export function fakeBlobSdk() {
       if (options.access !== 'private') throw new Error('Expected private write');
       const current = records.get(key);
       if ((options.ifMatch && current?.etag !== options.ifMatch) || (!options.allowOverwrite && current)) {
-        const error = new Error('Precondition failed / already exists'); error.name='BlobPreconditionFailedError'; throw error;
+        // Use the real SDK exception: its .name is "Error", not the class name.
+        throw new BlobPreconditionFailedError();
       }
       const etag = '"revision-' + (++sequence) + '"'; records.set(key,{text,etag}); writes++;
       return {etag,pathname:key};
     },
     async del(key, options) {
-      if (options.ifMatch && records.get(key)?.etag !== options.ifMatch) { const e=new Error('Precondition failed'); e.name='BlobPreconditionFailedError'; throw e; }
+      if (options.ifMatch && records.get(key)?.etag !== options.ifMatch) throw new BlobPreconditionFailedError();
       records.delete(key);
     }
   };

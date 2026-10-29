@@ -2,6 +2,16 @@ import {test,expect} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 const PASSWORD='BusinessPassword123!';
+test('storage failures show a diagnosis code and reference on the login screen', async ({page}) => {
+  await page.route('**/api/cloud-sync**', route => route.fulfill({
+    status:503, contentType:'application/json', body:JSON.stringify({ok:false,
+      error:'Akses Blob ditolak. Periksa koneksi proyek dan environment.',
+      code:'BLOB_ACCESS_DENIED', reference:'a1b2c3d4'})
+  }));
+  await page.goto('/');
+  await expect(page.locator('#authOverlay')).toBeVisible();
+  await expect(page.getByText(/BLOB_ACCESS_DENIED; ref a1b2c3d4/)).toBeVisible();
+});
 async function mailboxCode(username) {
   let code;
   await expect.poll(async()=>{

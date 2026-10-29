@@ -1,6 +1,8 @@
-# Hasil pemeriksaan paket SIAKAD-KDMP v5
+# Hasil pemeriksaan paket SIAKAD-KDMP v5.0.1
 
-Tanggal: 28 Oktober 2026. Pemeriksaan dilakukan pada salinan perbaikan kode yang disertakan dalam ZIP.
+Pembaruan: 29 Oktober 2026 (WIB). Pemeriksaan dilakukan pada salinan perbaikan kode yang disertakan dalam ZIP.
+
+**Koreksi pengujian v5.0.0:** exception simulasi lama tidak mencerminkan `name` pada kelas error SDK asli. Setelah fixture memakai `BlobPreconditionFailedError` asli, uji konkurensi gagal dengan HTTP 503 pada kode lama. Pemeriksaan kelas error diperbaiki, lalu seluruh suite di bawah dijalankan ulang dan lulus. Hasil ini tidak memastikan penyebab deployment tertentu tanpa Runtime Logs.
 
 ## Backend — 12 skenario
 
@@ -19,10 +21,24 @@ Tanggal: 28 Oktober 2026. Pemeriksaan dilakukan pada salinan perbaikan kode yang
 | Administrator membuka/reset/menghapus akun; pengguna biasa ditolak; logout mencabut sesi | Lulus |
 | Penerima OTP terikat pada challenge, tidak dapat diarahkan melalui parameter email/URL pengguna | Lulus |
 
-## Browser — 2 skenario terpadu
+## Adapter dan SDK — 8 skenario tambahan
+
+1. SDK `@vercel/blob` asli menerima HTTP 412 dari transport tiruan, membaca ETag terbaru, mencoba ulang, mempertahankan perubahan server lain, membaca tanpa cache, menerima conditional GET, dan menghapus dengan ETag.
+2. HTTP 403 dari private GET menjadi diagnosis akses ditolak.
+3. Kelas exception asli membedakan akses, store tidak ada/ditangguhkan, pembatasan, timeout, dan environment OIDC.
+4. OIDC diserahkan ke jalur refresh SDK; spasi token dibersihkan; kombinasi store berbeda ditolak sebelum I/O.
+5. Dokumen tanpa ETag tidak ditimpa.
+6. Konflik berulang berhenti dengan STORE_BUSY setelah retry terbatas.
+7. Referensi error API cocok dengan log tanpa membocorkan pesan mentah/token/URL provider.
+8. Stream terputus dibedakan dari JSON rusak.
+
+Dua uji transport memakai Undici MockAgent dengan koneksi jaringan asli dinonaktifkan. Ini menguji perilaku SDK sebenarnya terhadap respons tiruan, bukan akses ke akun Vercel nyata.
+
+## Browser — 3 skenario terpadu
 
 1. **Registrasi, OTP, dua konteks browser terpisah, sinkronisasi, offline/online, refresh, jurnal, ekspor Excel, login karyawan, dan logout.** Data identitas dari perangkat A terbaca di B; perubahan offline B tersimpan setelah online dan muncul di A. Jurnal dua baris seimbang tersimpan melalui API. Excel yang diunduh dibuka kembali dan berisi sedikitnya 10 lembar. Form jurnal mempertahankan 8 kolom setelah sanitasi HTML. Menu pengelolaan yang tidak diizinkan disembunyikan/dinonaktifkan untuk karyawan. API kembali menolak akses setelah logout.
 2. **Tampilan login ponsel dan sanitasi input HTML berbahaya.** Viewport 390 × 844 tidak mengalami overflow horizontal; script dan event handler berbahaya pada template HTML dihapus.
+3. **Pesan diagnosis penyimpanan.** Halaman login menampilkan kode BLOB_ACCESS_DENIED beserta nomor referensi dari respons error API.
 
 Pemeriksaan visual dilakukan pada tangkapan tampilan desktop dan ponsel. Tangkapan pengujian internal tidak dimasukkan ke ZIP.
 
@@ -30,9 +46,9 @@ Pemeriksaan visual dilakukan pada tangkapan tampilan desktop dan ponsel. Tangkap
 
 - `npm run build`: berhasil.
 - `npm run check`: sintaks entry point server dan aplikasi browser valid.
-- `npm test`: 12 lulus.
-- `npm run test:browser`: 2 lulus menggunakan Chromium headless lokal.
-- `npm audit`: tidak melaporkan kerentanan pada dependensi terkunci saat pemeriksaan. Ini bukan jaminan tidak adanya celah keamanan. Override Zod 4.6.7 diterapkan pada dependensi transitif Vercel yang sebelumnya memakai versi terdampak.
+- `npm test`: 20 lulus (12 alur backend + 8 adapter/SDK).
+- `npm run test:browser`: 3 lulus menggunakan Chromium headless lokal.
+- `npm audit` pada rilis v5.0.0 tidak melaporkan kerentanan pada dependensi terkunci saat pemeriksaan. Rilis 5.0.1 memakai versi dependensi yang sama; Undici 6.29.1 yang sudah menjadi dependensi transitif juga dideklarasikan untuk pengujian. Ini bukan jaminan tidak adanya celah keamanan. Override Zod 4.6.7 tetap diterapkan.
 - SheetJS browser: versi resmi 0.20.3, disertakan lokal. Tidak menggunakan paket npm XLSX 0.18.5 yang lama.
 
 ## Batas pengujian

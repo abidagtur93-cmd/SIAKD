@@ -1,8 +1,10 @@
-# SIAKAD-KDMP v5 — Vercel Blob Private
+# SIAKAD-KDMP v5.0.1 — Vercel Blob Private
 
 Aplikasi akuntansi koperasi dari berkas yang Anda kirim, dengan penyimpanan bersama **Vercel Blob Private**, autentikasi di server, OTP email sungguhan melalui SMTP, serta sinkronisasi beberapa perangkat. Antarmuka dan modul akuntansi utama dipertahankan.
 
 **Mulai dari `MULAI_DI_SINI.md`.** ZIP ini adalah kode sumber siap diunggah ke GitHub. Anda tetap harus menghubungkan Blob dan mengisi rahasia di Vercel sebelum aplikasi dapat dipakai. Tidak ada akun produksi, App Password, atau token storage yang ditanamkan di kode.
+
+**Pembaruan untuk pengguna v5:** baca `PERBAIKAN_BLOB.md`. Versi 5.0.1 memperbaiki pengenalan exception konflik SDK Vercel, mengikuti prioritas OIDC, dan menyediakan kode diagnosis serta referensi Runtime Logs. Store dan schema data tetap sama.
 
 ## Struktur proyek
 
@@ -86,7 +88,7 @@ npm run check:connections
 npm start
 ```
 
-`check:connections` menulis/membaca/menghapus dokumen probe kecil di Blob dan memverifikasi koneksi TLS/autentikasi SMTP; tidak mengirim email. Lakukan login melalui UI untuk memeriksa penerimaan OTP nyata. Jalur ini menggunakan layanan asli dan kuotanya. Anda juga dapat menggunakan `vercel env pull` dan `vercel dev` agar kredensial proyek tersedia secara otomatis.
+`check:connections` membuat/membaca/memperbarui dokumen probe kecil dengan ETag, memeriksa pembacaan terbaru/bersyarat, menghapus probe, dan memverifikasi koneksi TLS/autentikasi SMTP; tidak mengirim email. Lakukan login melalui UI untuk memeriksa penerimaan OTP nyata. Jalur ini menggunakan layanan asli dan kuotanya. Anda juga dapat menggunakan `vercel env pull` dan `vercel dev` agar kredensial proyek tersedia secara otomatis.
 
 Uji browser lokal memakai data serta mailer tiruan yang tidak diimpor oleh deployment produksi:
 

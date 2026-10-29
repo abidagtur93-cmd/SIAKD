@@ -179,7 +179,9 @@ async function cloudRequest(action, payload = {}, method = 'POST') {
   let data;
   try { data = await response.json(); } catch { throw new Error('Respons server tidak valid. Periksa deployment /api/cloud-sync.'); }
   if (!response.ok || !data.ok) {
-    const error = new Error(data.error || 'Permintaan gagal.'); error.code = data.code; error.status = response.status;
+    const diagnosis = data.reference && /^[a-zA-Z0-9_-]{1,64}$/.test(data.code || '') && /^[a-f0-9]{8}$/.test(data.reference)
+      ? ` [${data.code}; ref ${data.reference}]` : '';
+    const error = new Error((data.error || 'Permintaan gagal.') + diagnosis); error.code = data.code; error.status = response.status;
     if (response.status === 401 && cloud.session && action !== 'login_begin') {
       cloud.session = null; showAuthModal();
     }
