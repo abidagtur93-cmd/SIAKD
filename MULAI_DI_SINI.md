@@ -1,6 +1,6 @@
 # Langkah pemasangan singkat
 
-**Sudah memasang v5 dan mendapat pesan “Layanan penyimpanan belum tersedia”?** Ikuti `PERBAIKAN_BLOB.md` untuk pembaruan v5.0.1. Pertahankan store, namespace, dan rahasia instalasi yang sudah ada.
+**Sudah memasang v5 dan mendapat STORE_BUSY atau pesan penyimpanan belum tersedia?** Ikuti `PERBAIKAN_BLOB.md` untuk pembaruan v5.0.2. Pertahankan store, namespace, dan rahasia instalasi yang sudah ada.
 
 1. **Ekstrak ZIP**, lalu upload seluruh isi folder proyek ke root repository GitHub. Pastikan ada `api/`, `lib/`, `public/`, `package.json`, dan `vercel.json` di root. Jangan upload `node_modules`, `.env.local`, atau ZIP sebagai satu-satunya file.
 2. Import repository di **Vercel**. Pilih **Other**, build `npm run build`, output `public`, Node **24.x**.

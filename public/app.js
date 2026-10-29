@@ -293,7 +293,9 @@ async function flushCloudChanges() {
         cloud.lastError = error;
         // Retry an uncertain network write with the SAME mutation id and payload.
         if (error.code !== 'NETWORK_ERROR' && error.status !== 503) cloud.pending = null;
-        if (error.status === 409 || error.code === 'EDIT_CONFLICT') cloud.blocked = true;
+        // A transient storage conflict may be retried; only a business edit conflict
+        // requires the user to reconcile the draft with the cloud state.
+        if ((error.status === 409 && error.code !== 'STORE_BUSY') || error.code === 'EDIT_CONFLICT') cloud.blocked = true;
         persistDraft(); cloudNotice(error.message, cloud.blocked); updateCloudSyncBadge('Belum tersimpan ke cloud', false);
         return;
       }

@@ -1,6 +1,6 @@
 import { createBlobStore } from '../lib/blob-store.js';
 import { createApplication } from '../lib/application.js';
-import { BlobPreconditionFailedError } from '@vercel/blob';
+import { BlobPreconditionFailedError, BlobNotFoundError } from '@vercel/blob';
 export const testEnvironment = {
   NODE_ENV: 'test', SESSION_SECRET: 'test-session-secret-is-long-and-never-for-production',
   ADMIN_USERNAME: 'superadmin', ADMIN_PASSWORD: 'AdminPassword123!', ADMIN_EMAIL: 'admin@example.com',
@@ -9,6 +9,12 @@ export const testEnvironment = {
 export function fakeBlobSdk() {
   const records = new Map(); let sequence = 0; let failWrites = false; let writes = 0; let reads = 0;
   const sdk = {
+    async head(key) {
+      reads++;
+      const record = records.get(key);
+      if (!record) throw new BlobNotFoundError();
+      return { pathname: key, etag: record.etag };
+    },
     async get(key, options) {
       reads++; if (options.useCache !== false || options.access !== 'private') throw new Error('Expected consistent private read');
       const record = records.get(key); if (!record) return null;

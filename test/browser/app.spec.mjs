@@ -94,3 +94,28 @@ test('mobile login layout and hostile text are contained',async({browser})=>{
   expect(safe).toBe(true);
   await page.screenshot({path:'test-results/mobile.png',fullPage:true});await context.close();
 });
+
+test('STORE_BUSY preserves the draft and leaves manual retry available', async ({page}) => {
+  const username = 'busy_' + Date.now();
+  await register(page, username);
+  let rejectWrites = true;
+  await page.route('**/api/cloud-sync', async route => {
+    if (route.request().method() === 'POST' && route.request().postDataJSON()?.action === 'workspace_save' && rejectWrites) {
+      return route.fulfill({ status:409, contentType:'application/json', body:JSON.stringify({ ok:false,
+        error:'Konflik versi sementara. Coba lagi.', code:'STORE_BUSY', reference:'a1b2c3d4' }) });
+    }
+    return route.continue();
+  });
+  await openTab(page, 'identitas');
+  await page.locator('#idCoopName').fill('Koperasi Uji Retry');
+  await page.locator('#idCity').fill('Temanggung');
+  await page.locator('#identityForm button[type="submit"]').click();
+  await expect(page.locator('#cloudNoticeText')).toContainText('STORE_BUSY');
+  await expect(page.locator('#cloudRetry')).toBeVisible();
+  await expect(page.locator('#idCity')).toHaveValue('Temanggung');
+  rejectWrites = false;
+  await page.locator('#cloudRetry').click();
+  await expect(page.locator('#cloudSyncBadge')).toContainText('Tersinkron');
+  const data = await (await page.request.get('/api/cloud-sync?action=workspace')).json();
+  expect(data.state.identity.city).toBe('Temanggung');
+});

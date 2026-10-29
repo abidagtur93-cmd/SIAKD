@@ -1,8 +1,22 @@
-# Pembaruan v5.0.1 — pesan “Layanan penyimpanan belum tersedia”
+# Pembaruan v5.0.2 — konflik STORE_BUSY yang berulang
 
 Pada tangkapan layar Anda, store sudah **Private**, berlokasi **SIN1**, folder `siakad-v5-production/` sudah ada, dan pemakaian masih jauh di bawah kuota yang ditampilkan. Gambar itu tidak menunjukkan error server atau koneksi environment, sehingga belum cukup untuk memastikan satu penyebab deployment.
 
-## Bug yang ditemukan dan diperbaiki
+Screenshot Runtime Logs berikutnya mengonfirmasi **release 5.0.1, status 409, kode STORE_BUSY, Production, Node 24, Singapore**. Artinya pembaruan sebelumnya sudah diterapkan, tetapi penulisan bersyarat tetap ditolak. Log itu belum mencatat penanda versi yang dibaca, sehingga penyebab persis di akun produksi belum dapat dipastikan.
+
+## Perubahan v5.0.2
+
+- Pembacaan meminta representasi asli (`Accept-Encoding: identity`) dan tetap memakai `useCache: false`.
+- Setelah penolakan versi, aplikasi memeriksa metadata Blob **sebelum dan sesudah** membaca isi. Isi dan metadata harus menunjuk versi yang sama, lalu penyimpanan memakai ETag kuat dari metadata. Jika data berubah di tengah pembacaan, isi dibaca ulang. Aplikasi tidak menempelkan ETag baru ke isi lama dan tidak menonaktifkan `ifMatch`.
+- Penanda respons lemah seperti `W/"versi"` hanya dapat dipulihkan bila metadata kuat yang cocok sudah diverifikasi. Simulasi kondisi ini menghasilkan STORE_BUSY pada kode 5.0.1 dan berhasil menyimpan pada 5.0.2. **Ini kemungkinan penyebab yang diuji, bukan bukti bahwa header produksi Anda demikian.**
+- Konflik sementara mempertahankan draf dan tombol **Coba lagi**. Konflik perubahan pengguna yang memang bertabrakan tetap memerlukan rekonsiliasi.
+- Log tambahan mencatat jumlah penolakan, perubahan metadata, ketidakcocokan versi, dan apakah ditemukan validator lemah. Log tidak memuat token, password, OTP, ETag mentah, atau isi akun.
+
+**Untuk kasus STORE_BUSY ini, cukup perbarui file GitHub, deploy versi 5.0.2, lalu muat ulang.** Pertahankan store, BLOB_PREFIX, dan environment yang sudah digunakan. Pengecekan koneksi pada langkah berikut hanya diperlukan bila muncul kode akses/config yang sesuai.
+
+Pemeriksaan metadata menambah operasi baca hanya pada jalur retry dan penghapusan. Pantau kuota operasi Blob; penanganan konflik tidak mengubah paket gratis menjadi tanpa batas.
+
+## Perbaikan sebelumnya yang tetap disertakan
 
 Kode v5.0.0 mengenali konflik dengan `error.name === 'BlobPreconditionFailedError'`. Pada SDK `@vercel/blob` 2.8.2, instance kelas tersebut memiliki `name` bernilai `Error`. Akibatnya, konflik ketika dua permintaan memperbarui dokumen yang sama bisa menjadi HTTP 503, padahal seharusnya dibaca ulang dan dicoba kembali.
 
@@ -27,13 +41,16 @@ Pesan baru menyertakan kode seperti `[BLOB_ACCESS_DENIED; ref a1b2c3d4]`. Di pro
 
 | Kode | Tindakan |
 | --- | --- |
+| `BLOB_READ_VERSION_MISMATCH` | Isi yang dibaca dan metadata tidak menunjuk versi sama. Kirim baris log lengkap dengan `readMetadataMismatch` dan `metadataChanged`. Jangan hapus data. |
+| `BLOB_CONDITION_REJECTED` | Penyimpanan berulang kali ditolak walaupun metadata stabil. Kirim baris log lengkap; jumlah `writesRejected` dan `distinctMetadataVersions` membedakan kasus ini dari perubahan bersamaan. |
+| `BLOB_METADATA_INVALID` | Metadata tidak menyediakan validator kuat; aplikasi menghentikan penulisan. Kirim kode/ref untuk pemeriksaan. |
 | `BLOB_NOT_CONFIGURED` / `BLOB_CREDENTIAL_INVALID` | Periksa koneksi proyek, nama variabel BLOB, environment aktif, kemudian redeploy. |
 | `BLOB_ACCESS_DENIED` / `BLOB_ENVIRONMENT_DENIED` | Periksa izin koneksi Production/Preview dan kredensial ke store yang benar; redeploy. |
 | `BLOB_CREDENTIAL_MISMATCH` | Store ID dan token menunjuk store berbeda. Samakan dengan store yang berisi data lama. |
 | `BLOB_STORE_NOT_FOUND` / `BLOB_STORE_SUSPENDED` | Periksa keberadaan/status store di dashboard Vercel. |
 | `BLOB_RATE_LIMITED` | Tunggu, kurangi percobaan berulang, lalu periksa Usage dan batas operasi. |
 | `BLOB_TIMEOUT` / `BLOB_UNAVAILABLE` | Coba kembali setelah jeda; periksa kode dan operasi pada Runtime Logs jika berulang. |
-| `STORE_BUSY` | Pembaruan bersamaan masih berlangsung setelah retry terbatas. Tunggu lalu coba lagi. |
+| `STORE_BUSY` | Versi belum dapat distabilkan setelah retry terbatas. Tunggu lalu coba lagi; bila berulang, kirim log lengkap release 5.0.2. Kode ini tidak membuktikan ada pengguna lain. |
 | `BLOB_ETAG_MISSING` / `CORRUPT_STORE` / `INVALID_STORE_SCHEMA` | Jangan hapus atau menimpa dokumen. Simpan kode error untuk pemeriksaan lebih lanjut. |
 | `SMTP_NOT_CONFIGURED` / `EMAIL_SEND_FAILED` | Periksa SMTP_USER, SMTP_PASS/App Password, SMTP_HOST, dan SMTP_PORT. Ini tahap email, terpisah dari koneksi Blob. |
 

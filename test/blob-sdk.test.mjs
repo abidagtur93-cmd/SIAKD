@@ -25,10 +25,13 @@ function mockedHttp(t) {
 test('real Blob SDK retries HTTP 412 using the new ETag, reads without cache and deletes conditionally', async t => {
   let current = { ...empty }, etag = '"v1"', puts = 0, reads = 0, deleted = false;
   const agent = mockedHttp(t);
+  agent.get('https://vercel.com').intercept({ path: '/api/blob?url=sdk-contract%2Fcounter.json', method: 'GET' })
+    .reply(() => ({ statusCode: 200, data: { pathname: 'sdk-contract/counter.json', etag } })).persist();
   agent.get('https://teststore.private.blob.vercel-storage.com')
     .intercept({ path: '/sdk-contract/counter.json?cache=0', method: 'GET' }).reply(options => {
     const headers = new Headers(options.headers);
     assert.equal(headers.get('authorization'), `Bearer ${env.BLOB_READ_WRITE_TOKEN}`);
+    assert.equal(headers.get('accept-encoding'), 'identity');
     reads++;
     return { statusCode: headers.get('if-none-match') === etag ? 304 : 200, data: JSON.stringify(current),
       responseOptions: { headers: { etag, 'content-type': 'application/json' } } };
@@ -65,6 +68,24 @@ test('real SDK private GET 403 becomes an actionable access error', async t => {
   mockedHttp(t).get('https://teststore.private.blob.vercel-storage.com')
     .intercept({ path: '/sdk-contract/auth.json?cache=0', method: 'GET' }).reply(403, 'Forbidden');
   await assert.rejects(createBlobStore({ env }).read('auth'), e => e.code === 'BLOB_ACCESS_DENIED' && e.diagnostic.providerStatus === 403);
+});
+
+test('real SDK recovers when private GET supplies a weak validator and HEAD supplies its strong version', async t => {
+  const agent = mockedHttp(t); let puts = 0, heads = 0;
+  agent.get('https://teststore.private.blob.vercel-storage.com')
+    .intercept({ path:'/sdk-contract/weak.json?cache=0', method:'GET' })
+    .reply(200, JSON.stringify(empty), { headers:{etag:'W/"canonical"','content-type':'application/json'} }).persist();
+  agent.get('https://vercel.com').intercept({ path:'/api/blob?url=sdk-contract%2Fweak.json', method:'GET' })
+    .reply(() => { heads++; return {statusCode:200,data:{pathname:'sdk-contract/weak.json',etag:'"canonical"'}}; }).persist();
+  agent.get('https://vercel.com').intercept({ path:'/api/blob/?pathname=sdk-contract%2Fweak.json', method:'PUT' })
+    .reply(options => {
+      puts++; const headers = new Headers(options.headers);
+      if (headers.get('x-if-match') !== '"canonical"') return {statusCode:412,data:{error:{code:'precondition_failed'}}};
+      assert.equal(JSON.parse(options.body).count, 1);
+      return {statusCode:200,data:{pathname:'sdk-contract/weak.json',etag:'"saved"'}};
+    }).persist();
+  const result = await createBlobStore({env}).mutate('weak',empty,doc=>{doc.count++;});
+  assert.equal(result.etag,'"saved"'); assert.equal(puts,2); assert.equal(heads,2);
 });
 
 test('real SDK exception classes distinguish access, suspended store, rate limit and timeout', () => {
@@ -106,7 +127,9 @@ test('an existing document without an ETag is never overwritten', async () => {
 
 test('repeated real SDK conflicts stop with STORE_BUSY instead of a misleading service outage', async () => {
   let writes = 0;
-  const sdk = { async get() { return { statusCode: 200, blob: { etag: '"v1"' }, stream: new Response(JSON.stringify(empty)).body }; },
+  const tag = () => `"v${writes}"`;
+  const sdk = { async head() { return { etag: tag() }; },
+    async get() { return { statusCode: 200, blob: { etag: tag() }, stream: new Response(JSON.stringify(empty)).body }; },
     async put() { writes++; throw new blob.BlobPreconditionFailedError(); } };
   await assert.rejects(createBlobStore({ sdk, env, retries: 2 }).mutate('auth', empty, d => { d.count++; }), e => e.code === 'STORE_BUSY' && e.status === 409);
   assert.equal(writes, 2);

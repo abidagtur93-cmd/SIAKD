@@ -11,7 +11,7 @@ try {
   if(read.value?.probe!=='connection-check')throw new Error('Pembacaan Blob tidak sesuai');
   const changed=await store.mutate(key,{schema:5,revision:0},doc=>{doc.probe='overwrite-check';});
   const updated=await store.read(key);
-  if(updated.value?.probe!=='overwrite-check'||updated.etag!==changed.etag)throw new Error('Pembacaan setelah overwrite tidak sesuai');
+  if(updated.value?.probe!=='overwrite-check'||updated.value.revision!==changed.doc.revision)throw new Error('Pembacaan setelah overwrite tidak sesuai');
   if(!(await store.read(key,updated.etag)).unchanged)throw new Error('Pembacaan bersyarat tidak sesuai');
   await store.remove(key);console.log('Blob Private: create/read/conditional overwrite/read terbaru/conditional read/delete berhasil.');
   if(!process.env.SMTP_USER||!process.env.SMTP_PASS)throw new Error('SMTP_USER / SMTP_PASS belum diisi');
@@ -23,4 +23,5 @@ try {
   console.log('Lanjutkan uji login OTP melalui antarmuka untuk memastikan email benar-benar masuk ke Inbox/Spam.');
 } catch(error) { console.error('Pemeriksaan gagal:',error.code||error.name);
   if(error instanceof AppError)console.error(error.message);
+  if(error.diagnostic)console.error(JSON.stringify(error.diagnostic));
   process.exitCode=1; }

@@ -1,10 +1,10 @@
-# SIAKAD-KDMP v5.0.1 — Vercel Blob Private
+# SIAKAD-KDMP v5.0.2 — Vercel Blob Private
 
 Aplikasi akuntansi koperasi dari berkas yang Anda kirim, dengan penyimpanan bersama **Vercel Blob Private**, autentikasi di server, OTP email sungguhan melalui SMTP, serta sinkronisasi beberapa perangkat. Antarmuka dan modul akuntansi utama dipertahankan.
 
 **Mulai dari `MULAI_DI_SINI.md`.** ZIP ini adalah kode sumber siap diunggah ke GitHub. Anda tetap harus menghubungkan Blob dan mengisi rahasia di Vercel sebelum aplikasi dapat dipakai. Tidak ada akun produksi, App Password, atau token storage yang ditanamkan di kode.
 
-**Pembaruan untuk pengguna v5:** baca `PERBAIKAN_BLOB.md`. Versi 5.0.1 memperbaiki pengenalan exception konflik SDK Vercel, mengikuti prioritas OIDC, dan menyediakan kode diagnosis serta referensi Runtime Logs. Store dan schema data tetap sama.
+**Pembaruan untuk pengguna v5:** baca `PERBAIKAN_BLOB.md`. Versi 5.0.2 menambahkan verifikasi isi/metadata saat penulisan ditolak, memulihkan validator lemah yang cocok dengan metadata kuat, menyediakan diagnosis konflik berulang, dan mempertahankan tombol retry untuk STORE_BUSY. Perbaikan exception/OIDC dari 5.0.1 tetap disertakan. Store dan schema data tetap sama.
 
 ## Struktur proyek
 
@@ -57,6 +57,7 @@ Antarmuka lama yang menggunakan template HTML dilindungi sanitizer DOMPurify dan
 - Sumber data utama adalah Blob, bukan `/tmp`, memori instance, localStorage, Redis, atau GitHub Gist. Tidak ada fallback diam-diam yang mengaku berhasil ketika Blob gagal.
 - Dokumen autentikasi berada di `<BLOB_PREFIX>/private/auth.json`; ruang kerja dipisahkan menjadi `<BLOB_PREFIX>/workspaces/<UID>.json`.
 - Pembacaan memakai `useCache: false` untuk mengambil versi terbaru. Penulisan memakai ETag `ifMatch` dan retry terbatas; penciptaan dokumen tidak mengizinkan overwrite.
+- Setelah konflik versi, isi diperiksa di antara dua pembacaan metadata. Versi harus cocok sebelum pembaruan bersyarat; mekanisme ini menambah operasi baca pada jalur retry. Metadata tidak dipakai untuk mengizinkan penimpaan isi lama secara paksa.
 - Klien mengirim versi dasar terakhir yang dikonfirmasi dan perubahan yang diinginkan. Perubahan independen dapat digabung; perubahan yang bertabrakan ditolak dengan HTTP 409. Semua baris jurnal dengan nomor bukti yang sama diperlakukan sebagai satu transaksi. Jurnal harus seimbang dan menggunakan akun COA yang valid.
 - Setiap penyimpanan memiliki mutation ID agar pengulangan setelah koneksi terputus tidak membuat transaksi ganda.
 - Secara default perangkat aktif memeriksa pembaruan setiap **15 detik**, setelah kembali online, dan saat tab kembali aktif. Tombol **Sinkronkan sekarang** tersedia. Ini polling berkala, bukan jaminan push instan/WebSocket. Saat pengguna sedang mengetik di formulir atau ada draf belum tersimpan, pembaruan tidak menimpa isian tersebut.

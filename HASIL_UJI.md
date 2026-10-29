@@ -1,4 +1,4 @@
-# Hasil pemeriksaan paket SIAKAD-KDMP v5.0.1
+# Hasil pemeriksaan paket SIAKAD-KDMP v5.0.2
 
 Pembaruan: 29 Oktober 2026 (WIB). Pemeriksaan dilakukan pada salinan perbaikan kode yang disertakan dalam ZIP.
 
@@ -21,7 +21,7 @@ Pembaruan: 29 Oktober 2026 (WIB). Pemeriksaan dilakukan pada salinan perbaikan k
 | Administrator membuka/reset/menghapus akun; pengguna biasa ditolak; logout mencabut sesi | Lulus |
 | Penerima OTP terikat pada challenge, tidak dapat diarahkan melalui parameter email/URL pengguna | Lulus |
 
-## Adapter dan SDK — 8 skenario tambahan
+## Adapter dan SDK — 15 skenario tambahan
 
 1. SDK `@vercel/blob` asli menerima HTTP 412 dari transport tiruan, membaca ETag terbaru, mencoba ulang, mempertahankan perubahan server lain, membaca tanpa cache, menerima conditional GET, dan menghapus dengan ETag.
 2. HTTP 403 dari private GET menjadi diagnosis akses ditolak.
@@ -31,14 +31,24 @@ Pembaruan: 29 Oktober 2026 (WIB). Pemeriksaan dilakukan pada salinan perbaikan k
 6. Konflik berulang berhenti dengan STORE_BUSY setelah retry terbatas.
 7. Referensi error API cocok dengan log tanpa membocorkan pesan mentah/token/URL provider.
 8. Stream terputus dibedakan dari JSON rusak.
+9. SDK asli menerima weak ETag dari GET dan strong ETag dari HEAD, lalu pulih dengan conditional write yang tetap aktif.
+10. Adapter memulihkan validator lemah yang cocok dengan metadata kuat, termasuk penghapusan bersyarat.
+11. Isi lama tidak ditulis menggunakan metadata baru yang berbeda.
+12. Data yang berubah di antara dua pembacaan metadata dibaca ulang sebelum callback mutasi dijalankan.
+13. Penolakan berulang atas versi metadata yang tetap sama memperoleh diagnosis BLOB_CONDITION_REJECTED tanpa data mentah.
+14. Metadata lemah tidak otomatis diubah menjadi validator kuat.
+15. Gagal akses metadata tidak mengaktifkan penulisan tanpa kondisi.
 
-Dua uji transport memakai Undici MockAgent dengan koneksi jaringan asli dinonaktifkan. Ini menguji perilaku SDK sebenarnya terhadap respons tiruan, bukan akses ke akun Vercel nyata.
+Tiga uji transport memakai Undici MockAgent dengan koneksi jaringan asli dinonaktifkan. Ini menguji perilaku SDK sebenarnya terhadap respons tiruan, bukan akses ke akun Vercel nyata.
 
-## Browser — 3 skenario terpadu
+Kontrol pembanding memakai kode rilis 5.0.1 yang dikirim sebelumnya: simulasi weak ETag menghasilkan STORE_BUSY/409. Simulasi yang sama pada 5.0.2 berhasil menyimpan count=1. Kondisi weak ETag produksi pengguna belum terkonfirmasi; log lama hanya memuat kode, status, release, dan referensi.
+
+## Browser — 4 skenario terpadu
 
 1. **Registrasi, OTP, dua konteks browser terpisah, sinkronisasi, offline/online, refresh, jurnal, ekspor Excel, login karyawan, dan logout.** Data identitas dari perangkat A terbaca di B; perubahan offline B tersimpan setelah online dan muncul di A. Jurnal dua baris seimbang tersimpan melalui API. Excel yang diunduh dibuka kembali dan berisi sedikitnya 10 lembar. Form jurnal mempertahankan 8 kolom setelah sanitasi HTML. Menu pengelolaan yang tidak diizinkan disembunyikan/dinonaktifkan untuk karyawan. API kembali menolak akses setelah logout.
 2. **Tampilan login ponsel dan sanitasi input HTML berbahaya.** Viewport 390 × 844 tidak mengalami overflow horizontal; script dan event handler berbahaya pada template HTML dihapus.
 3. **Pesan diagnosis penyimpanan.** Halaman login menampilkan kode BLOB_ACCESS_DENIED beserta nomor referensi dari respons error API.
+4. **Retry STORE_BUSY.** Penolakan penyimpanan sementara mempertahankan draf dan tombol coba lagi. Setelah provider tiruan kembali menerima permintaan, retry menyimpan perubahan yang sama. Skenario ini dijalankan ulang terpisah setelah melengkapi isian wajib dan mempertahankan error tiruan sampai tombol retry diuji.
 
 Pemeriksaan visual dilakukan pada tangkapan tampilan desktop dan ponsel. Tangkapan pengujian internal tidak dimasukkan ke ZIP.
 
@@ -46,9 +56,9 @@ Pemeriksaan visual dilakukan pada tangkapan tampilan desktop dan ponsel. Tangkap
 
 - `npm run build`: berhasil.
 - `npm run check`: sintaks entry point server dan aplikasi browser valid.
-- `npm test`: 20 lulus (12 alur backend + 8 adapter/SDK).
-- `npm run test:browser`: 3 lulus menggunakan Chromium headless lokal.
-- `npm audit` pada rilis v5.0.0 tidak melaporkan kerentanan pada dependensi terkunci saat pemeriksaan. Rilis 5.0.1 memakai versi dependensi yang sama; Undici 6.29.1 yang sudah menjadi dependensi transitif juga dideklarasikan untuk pengujian. Ini bukan jaminan tidak adanya celah keamanan. Override Zod 4.6.7 tetap diterapkan.
+- `npm test`: 27 lulus (12 alur backend + 15 adapter/SDK).
+- `npm run test:browser`: keempat skenario lulus menggunakan Chromium headless lokal; tiga alur lama dalam suite, alur STORE_BUSY pada pengulangan terarah.
+- `npm audit` pada rilis v5.0.0 tidak melaporkan kerentanan pada dependensi terkunci saat pemeriksaan. Versi dependensi 5.0.2 sama dengan 5.0.1. Ini bukan jaminan tidak adanya celah keamanan. Override Zod 4.6.7 tetap diterapkan.
 - SheetJS browser: versi resmi 0.20.3, disertakan lokal. Tidak menggunakan paket npm XLSX 0.18.5 yang lama.
 
 ## Batas pengujian
